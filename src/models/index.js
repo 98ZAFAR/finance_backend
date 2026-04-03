@@ -1,12 +1,20 @@
-const { sequilize} = require("sequelize");
+const { sequelize } = require("../configs/db");
 const User = require("./auth/model");
 const Record = require("./record/model");
 
-// Define associations
-User.hasMany(Record, { foreignKey: "userId", onDelete: "CASCADE" });
-Record.belongsTo(User, { foreignKey: "userId" });
+User.hasMany(Record, {
+  foreignKey: "userId",
+  as: "records",
+  onDelete: "CASCADE",
+});
+
+Record.belongsTo(User, {
+  foreignKey: "userId",
+  as: "owner",
+});
 
 module.exports = {
+  sequelize,
   User,
   Record,
 };

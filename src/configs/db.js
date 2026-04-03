@@ -7,18 +7,21 @@ const sequelize = new Sequelize(
   process.env.DB_PASS,
   {
     host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 5432),
     dialect: "postgres",
     logging: false,
+    pool: {
+      max: 10,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
   }
 );
 
 const connectDB = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log("PostgreSQL connected");
-  } catch (error) {
-    console.error("DB connection failed:", error);
-  }
+  await sequelize.authenticate();
+  console.log("PostgreSQL connected");
 };
 
 module.exports = { sequelize, connectDB };
