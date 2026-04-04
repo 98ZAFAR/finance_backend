@@ -88,7 +88,8 @@ DB_HOST=localhost
 DB_PORT=5432
 
 Optional Redis:
-REDIS_URL=redis://localhost:6379
+UPSTASH_REDIS_REST_URL=https://<your-upstash-endpoint>.upstash.io
+UPSTASH_REDIS_REST_TOKEN=<your-upstash-rest-token>
 DASHBOARD_CACHE_TTL_SECONDS=60
 
 ## 5. Setup and Run
@@ -107,7 +108,7 @@ npm start
 
 Notes:
 
-- If REDIS_URL is missing or Redis package is not installed, the app still runs and caching is disabled.
+- If Upstash credentials are missing, the app still runs and caching is disabled.
 - Sequelize sync is enabled at startup for schema/table creation.
 
 ## 6. Role and Permission Matrix

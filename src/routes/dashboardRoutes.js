@@ -13,7 +13,7 @@ const { validateRecentQuery } = require("../utils/validators");
 const router = express.Router();
 
 router.use(authenticate);
-router.use(allowRoles("admin", "analyst"));
+router.use(allowRoles("admin", "analyst", "viewer"));
 
 router.get("/summary", getSummaryController);
 router.get("/categories", getCategoriesController);
