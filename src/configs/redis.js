@@ -1,38 +1,23 @@
-let createClient = null;
-
-try {
-  ({ createClient } = require("redis"));
-} catch (error) {
-  createClient = null;
-}
+require("dotenv").config();
+const { Redis } = require("@upstash/redis");
 
 let redisClient = null;
 
-const initializeRedis = async () => {
-  const redisUrl = process.env.REDIS_URL;
-
-  if (!createClient) {
-    console.log("Redis package is not installed. Caching is disabled.");
-    return null;
-  }
-
-  if (!redisUrl) {
-    console.log("Redis URL is not configured. Caching is disabled.");
-    return null;
-  }
-
+const initializeRedis = () => {
   try {
-    redisClient = createClient({ url: redisUrl });
-    redisClient.on("error", (error) => {
-      console.error("Redis error:", error.message);
+    redisClient = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
     });
 
-    await redisClient.connect();
-    console.log("Redis connected");
+    console.log("Upstash Redis initialized (REST mode)");
     return redisClient;
   } catch (error) {
     redisClient = null;
-    console.error("Redis connection failed. Caching is disabled:", error.message);
+    console.error(
+      "Redis initialization failed. Caching is disabled:",
+      error.message
+    );
     return null;
   }
 };
@@ -40,7 +25,7 @@ const initializeRedis = async () => {
 const getRedisClient = () => redisClient;
 
 const isRedisReady = () => {
-  return Boolean(redisClient && redisClient.isOpen);
+  return Boolean(redisClient);
 };
 
 module.exports = {

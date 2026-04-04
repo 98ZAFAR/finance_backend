@@ -41,7 +41,9 @@ const register = async (payload, actor = null) => {
   if (totalUsers === 0) {
     role = "admin";
     status = "active";
-  } else if (!actor || actor.role !== "admin") {
+  } else if (!actor) {
+    throw new ApiError(401, "Login required to register new users");
+  } else if (actor.role !== "admin") {
     throw new ApiError(403, "Only admin users can register new users");
   }
 
