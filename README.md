@@ -1,82 +1,118 @@
-# Finance Data Processing and Access Control Backend
+# Zorvyn Finance Backend API
 
-Backend API for a finance dashboard with authentication, RBAC, financial record management, and dashboard analytics.
+![Node](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supported-4169E1?logo=postgresql&logoColor=white)
+![License](https://img.shields.io/badge/License-ISC-blue)
 
-This implementation follows the SRS requirements in a modular flow:
+Backend API for finance data processing with authentication, role-based access control, record management, and dashboard analytics.
 
-Client -> Express API -> Controller -> Service -> Repository -> PostgreSQL
+## Table of Contents
 
-Optional caching layer:
+- [Highlights](#highlights)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Authentication and RBAC](#authentication-and-rbac)
+- [API Overview](#api-overview)
+- [Caching](#caching)
+- [Error Format](#error-format)
+- [Project Structure](#project-structure)
+- [Development Notes](#development-notes)
 
-Express API -> Service -> Redis
+## Highlights
 
-## 1. Implemented Scope
+- JWT-based authentication with HTTP-only cookie support
+- Role-based route protection for `admin`, `analyst`, and `viewer`
+- User management module for admin operations
+- Financial records CRUD with filtering and pagination
+- Dashboard endpoints for summary, categories, trends, and recent activity
+- Optional Upstash Redis caching for dashboard responses
+- Centralized validation and error handling
 
-The codebase implements core functionality for:
+## Architecture
 
-- User management (admin CRUD + status control)
-- Authentication (login + secure password hashing + JWT)
-- Authorization (JWT middleware + role-based restrictions)
-- Financial record CRUD with filtering
-- Dashboard analytics endpoints (summary, categories, trends, recent)
-- Validation and centralized error handling
-- Optional Redis caching for dashboard responses
+Layered request flow:
 
-## 2. Tech Stack
+`Client -> Routes -> Controllers -> Services -> Repositories -> PostgreSQL`
 
-- Node.js + Express
-- Sequelize ORM
+Optional cache layer for dashboard endpoints:
+
+`Services -> Upstash Redis`
+
+## Tech Stack
+
+- Node.js
+- Express
+- Sequelize
 - PostgreSQL
-- JWT (jsonwebtoken)
-- bcrypt password hashing
-- Redis client support (optional)
+- JWT (`jsonwebtoken`)
+- Password hashing (`bcrypt`)
+- Upstash Redis (`@upstash/redis`)
 
-## 3. Project Structure
+## Getting Started
 
-src
+### Prerequisites
 
-- configs
-  - db.js
-  - redis.js
-- controllers
-  - auth/controller.js
-  - user/controller.js
-  - record/controller.js
-  - dashboard/controller.js
-- middlewares
-  - authMiddleware.js
-  - rbacMiddleware.js
-  - validationMiddleware.js
-  - errorMiddleware.js
-- models
-  - auth/model.js
-  - record/model.js
-  - index.js
-- repositories
-  - userRepository.js
-  - recordRepository.js
-  - dashboardRepository.js
-- services
-  - authService.js
-  - userService.js
-  - recordService.js
-  - dashboardService.js
-- routes
-  - index.js
-  - authRoutes.js
-  - userRoutes.js
-  - recordRoutes.js
-  - dashboardRoutes.js
-- utils
-  - asyncHandler.js
-  - errors.js
-  - validators.js
-- server.js
+- Node.js 18+
+- PostgreSQL instance
+- Optional: Upstash Redis database
 
-## 4. Environment Variables
+### Install
 
-Create/update .env with:
+```bash
+npm install
+```
 
+### Run
+
+Development:
+
+```bash
+npm run dev
+```
+
+Production:
+
+```bash
+npm start
+```
+
+Default base URL: `http://localhost:3000/api`
+
+## Environment Variables
+
+Create a `.env` file in the project root.
+
+### Required
+
+| Variable | Description | Example |
+| --- | --- | --- |
+| `PORT` | API port | `3001` |
+| `JWT_SECRET` | Secret used to sign JWT tokens | `super_secret_key` |
+| `JWT_EXPIRES_IN` | JWT expiration window | `8h` |
+| `DB_NAME` | PostgreSQL database name | `finance_dashboard` |
+| `DB_USER` | PostgreSQL user | `postgres` |
+| `DB_PASS` | PostgreSQL password | `your_password` |
+| `DB_HOST` | PostgreSQL host | `localhost` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+
+### Optional
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL | Caching disabled when missing |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token | Caching disabled when missing |
+| `DASHBOARD_CACHE_TTL_SECONDS` | Dashboard cache TTL | `60` |
+| `AUTH_COOKIE_NAME` | Auth cookie key | `auth_token` |
+| `AUTH_COOKIE_MAX_AGE_MS` | Auth cookie lifetime | `28800000` |
+| `AUTH_COOKIE_SAME_SITE` | Cookie SameSite policy | `lax` |
+| `NODE_ENV` | Runtime environment | `development` |
+
+Example:
+
+```env
 PORT=3001
 JWT_SECRET=your_jwt_secret
 JWT_EXPIRES_IN=8h
@@ -87,230 +123,129 @@ DB_PASS=your_password
 DB_HOST=localhost
 DB_PORT=5432
 
-Optional Redis:
 UPSTASH_REDIS_REST_URL=https://<your-upstash-endpoint>.upstash.io
 UPSTASH_REDIS_REST_TOKEN=<your-upstash-rest-token>
 DASHBOARD_CACHE_TTL_SECONDS=60
 
-## 5. Setup and Run
+AUTH_COOKIE_NAME=auth_token
+AUTH_COOKIE_MAX_AGE_MS=28800000
+AUTH_COOKIE_SAME_SITE=lax
+NODE_ENV=development
+```
 
-1. Install dependencies
+## Authentication and RBAC
 
-npm install
+### Authentication behavior
 
-1. Start development server
+- `POST /api/auth/login` returns a JWT and also sets an HTTP-only auth cookie.
+- Protected routes accept token from:
+  - Auth cookie (`AUTH_COOKIE_NAME`)
+  - `Authorization: Bearer <token>` header
 
-npm run dev
+### Registration behavior
 
-1. Start production mode
+- First user can register without login and is forced to `admin`.
+- After first user exists, registering new users requires logged-in `admin` context.
 
-npm start
+### Role access matrix
 
-Notes:
+| Module | Viewer | Analyst | Admin |
+| --- | --- | --- | --- |
+| Auth login | Yes | Yes | Yes |
+| Auth register (first user bootstrap) | Yes | Yes | Yes |
+| Auth register (after bootstrap) | No | No | Yes |
+| Users management | No | No | Yes |
+| Records read (`GET /records`, `GET /records/:id`) | No | Yes | Yes |
+| Records write (`POST/PATCH/DELETE`) | No | No | Yes |
+| Dashboard endpoints | Yes | Yes | Yes |
 
-- If Upstash credentials are missing, the app still runs and caching is disabled.
-- Sequelize sync is enabled at startup for schema/table creation.
+## API Overview
 
-## 6. Role and Permission Matrix
+Base path: `/api`
 
-- viewer
-  - No protected API access currently assigned by default routes.
-- analyst
-  - Can read records and dashboard analytics.
-- admin
-  - Full control of users and records.
+| Area | Method | Endpoint | Access |
+| --- | --- | --- | --- |
+| Health | `GET` | `/health` | Public |
+| Auth | `POST` | `/auth/login` | Public |
+| Auth | `POST` | `/auth/register` | Public for first user, then Admin |
+| Users | `POST` | `/users` | Admin |
+| Users | `GET` | `/users` | Admin |
+| Users | `GET` | `/users/:id` | Admin |
+| Users | `PATCH` | `/users/:id` | Admin |
+| Users | `PATCH` | `/users/:id/status` | Admin |
+| Users | `DELETE` | `/users/:id` | Admin |
+| Records | `POST` | `/records` | Admin |
+| Records | `GET` | `/records` | Analyst, Admin |
+| Records | `GET` | `/records/:id` | Analyst, Admin |
+| Records | `PATCH` | `/records/:id` | Admin |
+| Records | `DELETE` | `/records/:id` | Admin |
+| Dashboard | `GET` | `/dashboard/summary` | Viewer, Analyst, Admin |
+| Dashboard | `GET` | `/dashboard/categories` | Viewer, Analyst, Admin |
+| Dashboard | `GET` | `/dashboard/trends` | Viewer, Analyst, Admin |
+| Dashboard | `GET` | `/dashboard/recent?limit=10` | Viewer, Analyst, Admin |
 
-Permissions by feature:
+### Minimal login example
 
-- Auth
-  - POST /api/auth/login: public
-  - POST /api/auth/register: bootstrap-only for first user; afterward requires admin context through managed user APIs
-- Users
-  - All /api/users endpoints: admin only
-- Records
-  - Create/Update/Delete: admin only
-  - Read/List: analyst or admin
-- Dashboard
-  - All dashboard endpoints: analyst or admin
+```bash
+curl -i -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"password123"}'
+```
 
-## 7. API Endpoints
+## Caching
 
-Base URL: /api
+- Dashboard responses are cached when Upstash credentials are configured.
+- Cache keys are under the `dashboard:*` namespace.
+- Record create/update/delete operations invalidate dashboard cache.
+- If Redis is unavailable, API still responds and falls back to direct database reads.
 
-### 7.1 Auth
+## Error Format
 
-POST /auth/register
+Typical error response:
 
-- Purpose: bootstrap first admin account when system has no users
-- Body:
-  - name (string, required)
-  - email (string, required)
-  - password (string, required, min 8)
-  - role (optional, ignored for first user and forced to admin)
-  - status (optional)
-
-POST /auth/login
-
-- Body:
-  - email (string, required)
-  - password (string, required)
-- Response:
-  - token
-  - user object
-
-### 7.2 Users (Admin Only)
-
-POST /users
-
-- Create user with role and status
-
-GET /users
-
-- Query filters:
-  - role
-  - status
-  - search
-  - page
-  - limit
-
-GET /users/:id
-
-- Fetch single user
-
-PATCH /users/:id
-
-- Update any of: name, role, status, password
-
-PATCH /users/:id/status
-
-- Update active/inactive status
-
-DELETE /users/:id
-
-- Delete a user (self-delete blocked)
-
-### 7.3 Records
-
-POST /records (admin)
-
-- Body:
-  - userId (optional, defaults to current admin)
-  - type: income | expense
-  - amount: positive number
-  - category: string
-  - date: valid date
-  - note: string (optional)
-
-GET /records (analyst, admin)
-
-- Query filters:
-  - type
-  - category
-  - startDate
-  - endDate
-  - page
-  - limit
-
-GET /records/:id (analyst, admin)
-
-PATCH /records/:id (admin)
-
-- Update any of: type, amount, category, date, note
-
-DELETE /records/:id (admin)
-
-### 7.4 Dashboard (Analyst, Admin)
-
-GET /dashboard/summary
-
-- Returns totalIncome, totalExpense, netBalance
-
-GET /dashboard/categories
-
-- Category-wise aggregation
-
-GET /dashboard/trends
-
-- Monthly trend aggregation by type
-
-GET /dashboard/recent?limit=10
-
-- Recent transactions list
-
-## 8. Validation and Error Handling
-
-Validation covers:
-
-- Auth payloads
-- User payloads and query params
-- Record payloads and filter query params
-- UUID path params
-
-Error format:
-
+```json
 {
   "message": "Validation failed",
-  "details": ["...", "..."]
+  "details": [
+    "email must be a valid email address"
+  ]
 }
+```
 
-HTTP status usage:
+Common HTTP status codes:
 
-- 200 OK
-- 201 Created
-- 400 Bad Request
-- 401 Unauthorized
-- 403 Forbidden
-- 404 Not Found
-- 409 Conflict
-- 500 Internal Server Error
+- `200` OK
+- `201` Created
+- `400` Bad Request
+- `401` Unauthorized
+- `403` Forbidden
+- `404` Not Found
+- `409` Conflict
+- `500` Internal Server Error
 
-## 9. Caching Behavior
+## Project Structure
 
-Dashboard service caches:
+```text
+src/
+  configs/
+  controllers/
+    auth/
+    dashboard/
+    record/
+    user/
+  middlewares/
+  models/
+    auth/
+    record/
+  repositories/
+  routes/
+  services/
+  utils/
+  server.js
+```
 
-- summary
-- categories
-- trends
-- recent list by limit
+## Development Notes
 
-Record mutations automatically invalidate dashboard cache keys.
-
-## 10. Security
-
-- Password hashing with bcrypt hooks in user model
-- JWT verification middleware for protected routes
-- Active user check on token authentication
-- RBAC middleware for role checks
-- Self-deactivation and self-deletion protections for admin user operations
-
-## 11. SRS Coverage Mapping
-
-- FR1-F6: implemented in admin user management + constraints
-- FR7-F11: implemented in auth service + JWT/RBAC middlewares
-- FR12-F17: implemented in record service + filters
-- FR18-F24: implemented in dashboard repository/service + optional Redis cache
-- FR25-F28: implemented in validators + ApiError + error middleware + safeguards
-- NFR1-NFR5: covered through optional Redis, secure auth, layered architecture, readability, model indexes/query patterns
-
-## 12. Ordered Implementation Plan (Completed)
-
-1. Foundation and DB/model corrections
-2. Authentication and JWT setup
-3. RBAC middleware
-4. User management APIs
-5. Record management APIs
-6. Filtering support
-7. Dashboard analytics queries
-8. Optional Redis caching
-9. Validation and error handling
-10. Route integration
-11. Startup wiring
-12. Documentation
-
-## 13. Optional Next Enhancements
-
-- Pagination metadata standardization across all list endpoints
-- Swagger/OpenAPI docs generation
-- Rate limiting middleware
-- Docker and docker-compose setup (Postgres + Redis + API)
-- Automated tests (unit + integration)
+- Server startup runs Sequelize sync automatically.
+- Keep role checks in routes and business constraints in services.
+- If frontend and backend run on different origins, configure CORS with credentials for cookie-based auth.
