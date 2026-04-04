@@ -2,6 +2,7 @@ const express = require("express");
 const {
   loginController,
   registerController,
+  logoutController,
 } = require("../controllers/auth/controller");
 const { authenticateOptional } = require("../middlewares/authMiddleware");
 const { validatePayload } = require("../middlewares/validationMiddleware");
@@ -19,5 +20,6 @@ router.post(
   validatePayload(validateRegistrationPayload),
   registerController,
 );
+router.post("/logout", logoutController);
 
 module.exports = router;

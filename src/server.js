@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cookieParser = require("cookie-parser");
+const cors = require("cors");
 
 const { connectDB } = require("./configs/db");
 const { initializeRedis } = require("./configs/redis");
@@ -13,6 +14,14 @@ const {
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+corsOptions = {
+  origin: process.env.CORS_ORIGIN || "*",
+  methods: "GET,PATCH,POST,DELETE",
+  allowedHeaders: "Content-Type,Authorization",
+  credentials: true,
+};
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

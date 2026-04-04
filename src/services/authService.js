@@ -27,6 +27,30 @@ const createAuthToken = (user) => {
   );
 };
 
+const setAuthCookie = (res, token) => {
+  const cookieName = process.env.AUTH_COOKIE_NAME || "auth_token";
+  const maxAge = process.env.JWT_EXPIRES_IN
+    ? parseInt(process.env.JWT_EXPIRES_IN) * 1000
+    : 8 * 60 * 60 * 1000;
+  const sameSite = process.env.AUTH_COOKIE_SAME_SITE || "lax";
+
+  res.cookie(cookieName, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge,
+    sameSite,
+  });
+};
+
+const clearAuthCookie = (res) => {
+  const cookieName = process.env.AUTH_COOKIE_NAME || "auth_token";
+  res.clearCookie(cookieName, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.AUTH_COOKIE_SAME_SITE || "lax",
+  });
+};
+
 const register = async (payload, actor = null) => {
   const existingUser = await findUserByEmail(payload.email);
   if (existingUser) {
@@ -82,7 +106,14 @@ const login = async ({ email, password }) => {
   };
 };
 
+const logout = async (res) => {
+  clearAuthCookie(res);
+};
+
 module.exports = {
   register,
   login,
+  logout,
+  setAuthCookie,
+  clearAuthCookie,
 };
