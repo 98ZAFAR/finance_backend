@@ -1,5 +1,6 @@
 const { Sequelize } = require("sequelize");
 require("dotenv").config();
+const { logger } = require("../utils/logger");
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -21,7 +22,11 @@ const sequelize = new Sequelize(
 
 const connectDB = async () => {
   await sequelize.authenticate();
-  console.log("PostgreSQL connected");
+  logger.info("PostgreSQL connected", {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 5432),
+    database: process.env.DB_NAME,
+  });
 };
 
 module.exports = { sequelize, connectDB };

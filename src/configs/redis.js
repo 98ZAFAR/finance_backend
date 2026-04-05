@@ -1,5 +1,6 @@
 require("dotenv").config();
 const { Redis } = require("@upstash/redis");
+const { logger } = require("../utils/logger");
 
 let redisClient = null;
 
@@ -9,7 +10,10 @@ const initializeRedis = () => {
 
   if (!url || !token) {
     redisClient = null;
-    console.log("Upstash credentials are missing. Caching is disabled.");
+    logger.warn("Upstash credentials are missing. Caching is disabled", {
+      hasUrl: Boolean(url),
+      hasToken: Boolean(token),
+    });
     return null;
   }
 
@@ -19,14 +23,18 @@ const initializeRedis = () => {
       token,
     });
 
-    console.log("Upstash Redis initialized (REST mode)");
+    logger.info("Upstash Redis initialized", {
+      provider: "upstash",
+      mode: "rest",
+    });
     return redisClient;
   } catch (error) {
     redisClient = null;
-    console.error(
-      "Redis initialization failed. Caching is disabled:",
-      error.message
-    );
+    logger.error("Redis initialization failed. Caching is disabled", {
+      provider: "upstash",
+      mode: "rest",
+      error,
+    });
     return null;
   }
 };

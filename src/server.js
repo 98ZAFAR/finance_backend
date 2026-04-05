@@ -7,6 +7,9 @@ const { connectDB } = require("./configs/db");
 const { initializeRedis } = require("./configs/redis");
 const { sequelize } = require("./models");
 const routes = require("./routes");
+const { requestLogger } = require("./middlewares/requestLoggerMiddleware");
+const { logger } = require("./utils/logger");
+const { startSystemInfoLogger } = require("./utils/systemInfoLogger");
 const {
   notFoundHandler,
   errorHandler,
@@ -15,7 +18,7 @@ const {
 const app = express();
 const port = process.env.PORT || 3000;
 
-corsOptions = {
+const corsOptions = {
   origin: process.env.CORS_ORIGIN || "*",
   methods: "GET,PATCH,POST,DELETE",
   allowedHeaders: "Content-Type,Authorization",
@@ -26,6 +29,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(requestLogger);
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -39,17 +43,29 @@ app.use(errorHandler);
 
 const startServer = async () => {
   try {
+    logger.info("Server startup initialized", {
+      port,
+      environment: process.env.NODE_ENV || "development",
+    });
+
     await connectDB();
     await sequelize.sync();
-    console.log("Models synchronized");
+    logger.info("Models synchronized");
+
     await initializeRedis();
+    startSystemInfoLogger();
 
     app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
+      logger.info("Server is listening", {
+        port,
+        baseApiPath: "/api",
+      });
     });
   }
   catch (error) {
-    console.error("Failed to start server:", error);
+    logger.error("Failed to start server", {
+      error,
+    });
     process.exit(1);
   }
 };

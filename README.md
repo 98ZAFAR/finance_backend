@@ -16,6 +16,7 @@ Backend API for finance data processing with authentication, role-based access c
 - [Environment Variables](#environment-variables)
 - [Authentication and RBAC](#authentication-and-rbac)
 - [API Overview](#api-overview)
+- [Logging and Observability](#logging-and-observability)
 - [Caching](#caching)
 - [Error Format](#error-format)
 - [Project Structure](#project-structure)
@@ -30,6 +31,7 @@ Backend API for finance data processing with authentication, role-based access c
 - Dashboard endpoints for summary, categories, trends, and recent activity
 - Optional Upstash Redis caching for dashboard responses
 - Centralized validation and error handling
+- Structured, readable logs for each API request and system snapshots
 
 ## Architecture
 
@@ -108,6 +110,9 @@ Create a `.env` file in the project root.
 | `AUTH_COOKIE_NAME` | Auth cookie key | `auth_token` |
 | `AUTH_COOKIE_MAX_AGE_MS` | Auth cookie lifetime | `28800000` |
 | `AUTH_COOKIE_SAME_SITE` | Cookie SameSite policy | `lax` |
+| `LOG_LEVEL` | Logger threshold (`error`, `warn`, `info`, `debug`, `trace`) | `debug` in dev, `info` in production |
+| `LOG_COLORS` | Enable/disable colored console output (`true`/`false`) | Auto (enabled on TTY, disabled when redirected) |
+| `SYSTEM_INFO_LOG_INTERVAL_MS` | System snapshot interval in milliseconds | `300000` |
 | `NODE_ENV` | Runtime environment | `development` |
 
 Example:
@@ -130,6 +135,9 @@ DASHBOARD_CACHE_TTL_SECONDS=60
 AUTH_COOKIE_NAME=auth_token
 AUTH_COOKIE_MAX_AGE_MS=28800000
 AUTH_COOKIE_SAME_SITE=lax
+LOG_LEVEL=debug
+LOG_COLORS=true
+SYSTEM_INFO_LOG_INTERVAL_MS=300000
 NODE_ENV=development
 ```
 
@@ -167,6 +175,7 @@ Base path: `/api`
 | --- | --- | --- | --- |
 | Health | `GET` | `/health` | Public |
 | Auth | `POST` | `/auth/login` | Public |
+| Auth | `POST` | `/auth/logout` | Public |
 | Auth | `POST` | `/auth/register` | Public for first user, then Admin |
 | Users | `POST` | `/users` | Admin |
 | Users | `GET` | `/users` | Admin |
@@ -190,6 +199,24 @@ Base path: `/api`
 curl -i -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"password123"}'
+```
+
+## Logging and Observability
+
+- API request logging is enabled for all routes through centralized middleware.
+- Every response emits structured, readable logs with:
+  - request ID (`X-Request-Id` response header)
+  - method, path, normalized route, status code
+  - request duration, user identity (if authenticated), client metadata
+- Error handling emits structured warning/error logs with request context and serialized error details.
+- Startup logs include DB/Redis initialization and service lifecycle events.
+- System info snapshots are emitted on startup and every `SYSTEM_INFO_LOG_INTERVAL_MS`.
+- Log levels are colorized in terminal output (`INFO` green, `WARN` yellow, `ERROR` red, etc.).
+
+Sample request log:
+
+```text
+[INFO] 2026-04-05 10:15:22.321 zorvyn.backend [req-f1298c9d] HTTP request completed requestId=f1298c9d-4932-4565-935f-98db31f6bc45 method=GET path=/api/dashboard/summary route=/api/dashboard/summary apiArea=dashboard statusCode=200 durationMs=14.52 userId=12 userRole=analyst
 ```
 
 ## Caching
