@@ -16,6 +16,7 @@ Backend API for finance data processing with authentication, role-based access c
 - [Environment Variables](#environment-variables)
 - [Authentication and RBAC](#authentication-and-rbac)
 - [API Overview](#api-overview)
+- [Rate Limiting](#rate-limiting)
 - [Logging and Observability](#logging-and-observability)
 - [Caching](#caching)
 - [Error Format](#error-format)
@@ -112,6 +113,11 @@ Create a `.env` file in the project root.
 | `AUTH_COOKIE_SAME_SITE` | Cookie SameSite policy | `lax` |
 | `LOG_LEVEL` | Logger threshold (`error`, `warn`, `info`, `debug`, `trace`) | `debug` in dev, `info` in production |
 | `LOG_COLORS` | Enable/disable colored console output (`true`/`false`) | Auto (enabled on TTY, disabled when redirected) |
+| `RATE_LIMIT_WINDOW_SECONDS` | General API rate-limit window size | `60` |
+| `RATE_LIMIT_MAX_REQUESTS` | Max requests per client within general API window | `120` |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS` | Auth endpoints rate-limit window size | `60` |
+| `AUTH_RATE_LIMIT_MAX_REQUESTS` | Max requests per client within auth window | `10` |
+| `RATE_LIMIT_FAIL_OPEN` | Continue requests if Redis is unavailable (`true`/`false`) | `true` |
 | `SYSTEM_INFO_LOG_INTERVAL_MS` | System snapshot interval in milliseconds | `300000` |
 | `NODE_ENV` | Runtime environment | `development` |
 
@@ -137,6 +143,11 @@ AUTH_COOKIE_MAX_AGE_MS=28800000
 AUTH_COOKIE_SAME_SITE=lax
 LOG_LEVEL=debug
 LOG_COLORS=true
+RATE_LIMIT_WINDOW_SECONDS=60
+RATE_LIMIT_MAX_REQUESTS=120
+AUTH_RATE_LIMIT_WINDOW_SECONDS=60
+AUTH_RATE_LIMIT_MAX_REQUESTS=10
+RATE_LIMIT_FAIL_OPEN=true
 SYSTEM_INFO_LOG_INTERVAL_MS=300000
 NODE_ENV=development
 ```
@@ -201,6 +212,31 @@ curl -i -X POST http://localhost:3000/api/auth/login \
   -d '{"email":"admin@example.com","password":"password123"}'
 ```
 
+## Rate Limiting
+
+- Redis-backed rate limiting is applied with fixed windows.
+- General API limit applies to `/api/*` except `/api/auth/*`.
+- Auth limit applies to `/api/auth/*` to protect login/register flows.
+- Client identity key is:
+  - `user:<id>` for authenticated users
+  - `ip:<client-ip>` for unauthenticated requests
+- Standard headers are returned:
+  - `X-RateLimit-Limit`
+  - `X-RateLimit-Remaining`
+  - `X-RateLimit-Reset` (unix timestamp)
+  - `Retry-After` (only when blocked)
+- When a limit is exceeded, API returns `429 Too Many Requests`.
+
+Default policies:
+
+- API: `120` requests per `60` seconds
+- Auth: `10` requests per `60` seconds
+
+Redis behavior:
+
+- With `RATE_LIMIT_FAIL_OPEN=true`, requests continue if Redis is unavailable.
+- With `RATE_LIMIT_FAIL_OPEN=false`, API returns `503` when rate-limit checks cannot run.
+
 ## Logging and Observability
 
 - API request logging is enabled for all routes through centralized middleware.
@@ -247,6 +283,7 @@ Common HTTP status codes:
 - `401` Unauthorized
 - `403` Forbidden
 - `404` Not Found
+- `429` Too Many Requests
 - `409` Conflict
 - `500` Internal Server Error
 
